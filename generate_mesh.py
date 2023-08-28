@@ -1,6 +1,3 @@
-import json
-
-
 def generate_edges():
     num_faces = int(input("Enter the number of faces: "))
     faces = {}
