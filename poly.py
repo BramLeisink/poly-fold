@@ -10,7 +10,6 @@ import json
 class Mesh:
     def __init__(self, vertices, faces):
         self.vertices = vertices  # list of the position for each vertex
-        print(f"vertices: {self.vertices}")
         self.faces = faces  # list of the indices for each face
 
         self.edges = []  # list of the indices for each edge
@@ -64,7 +63,6 @@ def graph_of_a_mesh(mesh):
     for edge in edges:
         edge = list(map(int, edge))
         distance = calculate_distance(mesh.vertices[edge[0]], mesh.vertices[edge[1]])
-        edge.append(distance)
         G.add_edge(edge[0], edge[1], weight=distance)
 
     return G
@@ -76,51 +74,19 @@ def dual_graph_of_a_mesh(mesh):
         V: [faces of the mesh]
         E: [(f, g) where f and g are faces with a common edge in the mesh]
     """
+    D = nx.Graph()
 
-    face_connections = []
     for edge in mesh.edges:
-        connected_faces = []
+        edge_faces = []
         for face_index in range(len(mesh.faces)):
             if edge[0] in mesh.faces[face_index] and edge[1] in mesh.faces[face_index]:
-                connected_faces.append(face_index)
-        if len(connected_faces) > 1:
-            face_connections.append(connected_faces)
-        else:
-            print(
-                "You somehow got a mesh, that contains an edge with just one plane attached."
-            )
-            quit()
-    D = nx.Graph()
-    for edge in face_connections:
-        D.add_edge(edge[0], edge[1], weight=calculate_edge_weight(mesh, edge))
+                edge_faces.append(face_index)
+        distance = calculate_distance(
+            mesh.vertices[int(edge[0])], mesh.vertices[int(edge[1])]
+        )
+        D.add_edge(edge_faces[0], edge_faces[1], weight=distance)
 
     return D
-
-# Function not working correctly.
-def calculate_edge_weight(mesh, edge):
-    """
-    This function takes a mesh and an edge and returns the weight of the edge.
-    The weight is based on the sum of the lengths of the two edges in the corresponding faces.
-    """
-    face1 = mesh.faces[edge[0]]
-    face2 = mesh.faces[edge[1]]
-
-    edge_indices = [(face1[i], face1[(i + 1) % len(face1)]) for i in range(len(face1))]
-    edge_indices += [(face2[i], face2[(i + 1) % len(face2)]) for i in range(len(face2))]
-
-    edge_count = {}
-    for edge in edge_indices:
-        # Sort the edge to ensure order doesn't affect the comparison
-        sorted_edge = tuple(sorted(edge))
-
-        if sorted_edge in edge_count:
-            duplicate_edge = sorted_edge
-        else:
-            edge_count[sorted_edge] = 1
-    vertex1 = mesh.vertices[int(duplicate_edge[0]) - 1]
-    vertex2 = mesh.vertices[int(duplicate_edge[1]) - 1]
-    edge_length = calculate_distance(vertex1, vertex2)
-    return round(edge_length, 6)
 
 
 def min_spanning_tree(edges, vertices):
