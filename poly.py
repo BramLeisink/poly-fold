@@ -43,13 +43,20 @@ class Mesh:
                     )
         self.edges = sorted(self.edges)
 
+        self.shortest_edge_length, self.longest_edge_length = None, None
 
-def calculate_distance(point1, point2, round_to=6):
-    x1, y1, z1 = point1
-    x2, y2, z2 = point2
-    distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
-    distance = round(distance, round_to)
-    return distance
+        edge_length_xtremes(self)
+
+
+def edge_length_xtremes(mesh):
+    for edge in mesh.edges:
+        length = calculate_distance(
+            mesh.vertices[int(edge[0])], mesh.vertices[int(edge[1])]
+        )
+        if mesh.shortest_edge_length is None or length < mesh.shortest_edge_length:
+            mesh.shortest_edge_length = length
+        if mesh.longest_edge_length is None or length > mesh.longest_edge_length:
+            mesh.longest_edge_length = length
 
 
 def graph_of_a_mesh(mesh):
@@ -62,7 +69,9 @@ def graph_of_a_mesh(mesh):
     G = nx.Graph()
     for edge in edges:
         edge = list(map(int, edge))
-        distance = calculate_distance(mesh.vertices[edge[0]], mesh.vertices[edge[1]])
+        distance = round(calculate_edge_weight(
+            mesh, mesh.vertices[int(edge[0])], mesh.vertices[int(edge[1])], 1, 1
+        ), 6)
         G.add_edge(edge[0], edge[1], weight=distance)
 
     return G
@@ -81,9 +90,9 @@ def dual_graph_of_a_mesh(mesh):
         for face_index in range(len(mesh.faces)):
             if edge[0] in mesh.faces[face_index] and edge[1] in mesh.faces[face_index]:
                 edge_faces.append(face_index)
-        distance = calculate_distance(
-            mesh.vertices[int(edge[0])], mesh.vertices[int(edge[1])]
-        )
+        distance = round(calculate_edge_weight(
+            mesh, mesh.vertices[int(edge[0])], mesh.vertices[int(edge[1])], 1, 1
+        ), 6)
         D.add_edge(edge_faces[0], edge_faces[1], weight=distance)
 
     return D
@@ -92,6 +101,56 @@ def dual_graph_of_a_mesh(mesh):
 def min_spanning_tree(edges, vertices):
     result = 2 * math.ceil(0.5 * (-1 + math.sqrt(1 + 8 * (edges - vertices + 1))))
     return result
+
+# I really hope this works, otherwise the whole algorithm is fugged.
+def calculate_edge_weight(mesh, endpoint1, endpoint2, var1, var2):
+    m = calculate_minimum_perimeter_weight(
+        endpoint1, endpoint2, mesh.shortest_edge_length, mesh.longest_edge_length
+    )
+    f = calculate_flat_spanning_tree_weight(endpoint1, endpoint2)
+
+    h = (1 - var1) * m + var2 * f
+    return h
+
+
+def calculate_distance(endpoint1, endpoint2, round_to=6):
+    x1, y1, z1 = endpoint1
+    x2, y2, z2 = endpoint2
+    distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
+    distance = round(distance, round_to)
+    return distance
+
+
+def calculate_minimum_perimeter_weight(
+    endpoint1, endpoint2, shortest_edge_length, longest_edge_length
+):
+    edge_length = calculate_distance(endpoint1, endpoint2)
+
+    if longest_edge_length == shortest_edge_length:
+        return 1
+    else:
+        # Calculate the weight using the formula
+        weight = 1 - (edge_length - shortest_edge_length) / (
+            longest_edge_length - shortest_edge_length
+        )
+
+    # Ensure the weight is within [0, 1] bounds
+    weight = max(0, min(1, weight))
+
+    return weight
+
+
+def calculate_flat_spanning_tree_weight(
+    endpoint1, endpoint2, reference_direction=np.array([1, 0, 0])
+):
+    endpoint_a, endpoint_b = endpoint1, endpoint2
+    constant_direction = reference_direction
+    edge_vector = np.array(endpoint_b) - np.array(endpoint_a)
+    dot_product = np.dot(constant_direction, edge_vector)
+    edge_length = np.linalg.norm(edge_vector)
+    flat_weight = abs(dot_product) / edge_length
+
+    return flat_weight
 
 
 # This function needs to be fixed. It terrible. (little less terrible now.)
