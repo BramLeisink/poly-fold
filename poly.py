@@ -45,14 +45,27 @@ class Mesh:
         self.edges = sorted(self.edges)
 
 
+def calculate_distance(point1, point2, round_to=6):
+    x1, y1, z1 = point1
+    x2, y2, z2 = point2
+    distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
+    distance = round(distance, round_to)
+    return distance
+
+
 def graph_of_a_mesh(mesh):
     """
     This function takes a mesh and returns a graph, where:
         V: [vertices of the mesh]
         E: [edges of the mesh]
     """
-
-    G = nx.from_edgelist(mesh.edges)
+    edges = mesh.edges
+    G = nx.Graph()
+    for edge in edges:
+        edge = list(map(int, edge))
+        distance = calculate_distance(mesh.vertices[edge[0]], mesh.vertices[edge[1]])
+        edge.append(distance)
+        G.add_edge(edge[0], edge[1], weight=distance)
 
     return G
 
@@ -83,7 +96,7 @@ def dual_graph_of_a_mesh(mesh):
 
     return D
 
-
+# Function not working correctly.
 def calculate_edge_weight(mesh, edge):
     """
     This function takes a mesh and an edge and returns the weight of the edge.
@@ -106,11 +119,7 @@ def calculate_edge_weight(mesh, edge):
             edge_count[sorted_edge] = 1
     vertex1 = mesh.vertices[int(duplicate_edge[0]) - 1]
     vertex2 = mesh.vertices[int(duplicate_edge[1]) - 1]
-    edge_length = math.sqrt(
-        (vertex1[0] - vertex2[0]) ** 2
-        + (vertex1[1] - vertex2[1]) ** 2
-        + (vertex1[2] - vertex2[2]) ** 2
-    )
+    edge_length = calculate_distance(vertex1, vertex2)
     return round(edge_length, 6)
 
 
@@ -119,7 +128,7 @@ def min_spanning_tree(edges, vertices):
     return result
 
 
-# This function needs to be fixed. It terrible.
+# This function needs to be fixed. It terrible. (little less terrible now.)
 def from_file(path):
     file_extension = os.path.splitext(path)[1]
     vertices = []
@@ -163,29 +172,6 @@ def from_file(path):
                 vertex.append(coordinate)
             vertices.append(vertex)
         return vertices, faces
-    # Crapy code this is. Please fix. Just for testing.
-    elif file_extension == ".txt":
-        with open(path) as file:
-            constants = {}
-            vertices = []
-            for line in file:
-                if line.startswith("C"):
-                    constants[int(line[1])] = round(float(line.split(" = ")[1]), 6)
-                elif line.startswith("V"):
-                    coords = line.split("(")[1].split(")")[0].split(", ")
-                    for coord in coords:
-                        if coord.__contains__("C"):
-                            constant = constants[int(coord.split("C")[1])]
-                            if coord[0] == "-":
-                                coord = constant * -1
-                            else:
-                                coord = constant
-                        else:
-                            coord = float(coord.strip(" "))
-                elif line.startswith("{"):
-                    faces.append(line.split("{ ")[1].split(" }")[0].split(", "))
-        return vertices, faces
-
     else:
         print(f"Error: Unsupported file extension {file_extension}")
         return
@@ -193,9 +179,7 @@ def from_file(path):
 
 if __name__ == "__main__":
     # Load the angel mesh. Trimesh directly detects that the mesh is textured and contains a material
-    mesh_path = (
-        "models/json/icosahedron.json"
-    )
+    mesh_path = "models/json/icosahedron.json"
     vertices, faces = from_file(mesh_path)
     mesh = Mesh(vertices, faces)
 
@@ -208,13 +192,16 @@ if __name__ == "__main__":
 
     # Plot the first graph in the first subplot
     plt.subplot(1, 2, 1)
-    nx.draw_spring(G, with_labels=True)
+    pos = nx.spring_layout(G)
+    nx.draw(G, pos, with_labels=True)
+    edge_labels = {(u, v): str(d["weight"]) for u, v, d in G.edges(data=True)}
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
     plt.title("Graph G")
 
     # Plot the second graph in the second subplot
     plt.subplot(1, 2, 2)
     pos = nx.spring_layout(D)
-    nx.draw(D, pos, with_labels=True, node_size=500, font_size=8)
+    nx.draw(D, pos, with_labels=True)
     edge_labels = {(u, v): str(d["weight"]) for u, v, d in D.edges(data=True)}
     nx.draw_networkx_edge_labels(D, pos, edge_labels=edge_labels)
     plt.title("Graph D")

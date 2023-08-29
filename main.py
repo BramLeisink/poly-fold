@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 if __name__ == "__main__":
     # Load the angel mesh. Trimesh directly detects that the mesh is textured and contains a material
     mesh_path = (
-        "/home/bramleisink/Documents/poly/models/json/truncated-tetrahedron.json"
+        "models/json/cube.json"
     )
     vertices, faces = poly.from_file(mesh_path)
     mesh = poly.Mesh(vertices, faces)
@@ -21,7 +21,10 @@ if __name__ == "__main__":
 
     # Plot the first graph in the first subplot
     plt.subplot(1, 2, 1)
-    nx.draw_spring(G, with_labels=True)
+    pos = nx.spring_layout(G)
+    nx.draw(G, pos, with_labels=True)
+    edge_labels = {(u, v): str(d["weight"]) for u, v, d in G.edges(data=True)}
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
     plt.title("Graph G")
 
     # Plot the second graph in the second subplot
