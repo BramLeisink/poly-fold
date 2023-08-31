@@ -48,6 +48,38 @@ class Mesh:
         edge_length_xtremes(self)
 
 
+def kruskals_max_weight(D):
+    # Create a list of all edges sorted in descending order of weight
+    sorted_edges = sorted(
+        D.edges(data=True), key=lambda x: x[2]["weight"], reverse=True
+    )
+
+    # Create a disjoint-set data structure to keep track of connected components
+    parent = {node: node for node in D.nodes()}
+
+    def find(node):
+        if parent[node] != node:
+            parent[node] = find(parent[node])
+        return parent[node]
+
+    def union(node1, node2):
+        root1 = find(node1)
+        root2 = find(node2)
+        if root1 != root2:
+            parent[root1] = root2
+
+    # Initialize an empty graph to store the maximum weight spanning tree
+    T = nx.Graph()
+
+    for edge in sorted_edges:
+        u, v, data = edge
+        if find(u) != find(v):
+            union(u, v)
+            T.add_edge(u, v, weight=data["weight"])
+
+    return T
+
+
 def edge_length_xtremes(mesh):
     for edge in mesh.edges:
         length = calculate_distance(
@@ -69,10 +101,13 @@ def graph_of_a_mesh(mesh):
     G = nx.Graph()
     for edge in edges:
         edge = list(map(int, edge))
-        distance = round(calculate_edge_weight(
-            mesh, mesh.vertices[int(edge[0])], mesh.vertices[int(edge[1])], 1, 1
-        ), 6)
-        G.add_edge(edge[0], edge[1], weight=distance)
+        weight = round(
+            calculate_edge_weight(
+                mesh, mesh.vertices[int(edge[0])], mesh.vertices[int(edge[1])], 0, 1
+            ),
+            6,
+        )
+        G.add_edge(edge[0], edge[1], weight=weight)
 
     return G
 
@@ -90,10 +125,13 @@ def dual_graph_of_a_mesh(mesh):
         for face_index in range(len(mesh.faces)):
             if edge[0] in mesh.faces[face_index] and edge[1] in mesh.faces[face_index]:
                 edge_faces.append(face_index)
-        distance = round(calculate_edge_weight(
-            mesh, mesh.vertices[int(edge[0])], mesh.vertices[int(edge[1])], 1, 1
-        ), 6)
-        D.add_edge(edge_faces[0], edge_faces[1], weight=distance)
+        weight = round(
+            calculate_edge_weight(
+                mesh, mesh.vertices[int(edge[0])], mesh.vertices[int(edge[1])], 0, 1
+            ),
+            6,
+        )
+        D.add_edge(edge_faces[0], edge_faces[1], weight=weight)
 
     return D
 
@@ -101,6 +139,7 @@ def dual_graph_of_a_mesh(mesh):
 def min_spanning_tree(edges, vertices):
     result = 2 * math.ceil(0.5 * (-1 + math.sqrt(1 + 8 * (edges - vertices + 1))))
     return result
+
 
 # I really hope this works, otherwise the whole algorithm is fugged.
 def calculate_edge_weight(mesh, endpoint1, endpoint2, var1, var2):
@@ -204,12 +243,13 @@ def from_file(path):
 
 if __name__ == "__main__":
     # Load the angel mesh. Trimesh directly detects that the mesh is textured and contains a material
-    mesh_path = "models/json/icosahedron.json"
+    mesh_path = "models/json/truncated-cube.json"
     vertices, faces = from_file(mesh_path)
     mesh = Mesh(vertices, faces)
 
     G = graph_of_a_mesh(mesh)
     D = dual_graph_of_a_mesh(mesh)
+    T = kruskals_max_weight(D)
 
     # Draw the graph
     # Create a figure with two subplots
@@ -217,22 +257,21 @@ if __name__ == "__main__":
 
     # Plot the first graph in the first subplot
     plt.subplot(1, 2, 1)
-    pos = nx.spring_layout(G)
+    pos = nx.spring_layout(G, k=0.2)  # You can adjust the 'k' parameter to control edge length
     nx.draw(G, pos, with_labels=True)
-    edge_labels = {(u, v): str(d["weight"]) for u, v, d in G.edges(data=True)}
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
     plt.title("Graph G")
 
     # Plot the second graph in the second subplot
     plt.subplot(1, 2, 2)
-    pos = nx.spring_layout(D)
+    pos = nx.spring_layout(D, k=0.2)  # You can adjust the 'k' parameter to control edge length
     nx.draw(D, pos, with_labels=True)
-    edge_labels = {(u, v): str(d["weight"]) for u, v, d in D.edges(data=True)}
-    nx.draw_networkx_edge_labels(D, pos, edge_labels=edge_labels)
     plt.title("Graph D")
 
     # Adjust layout to prevent overlapping labels
     plt.tight_layout()
-
     # Show the combined plot
+    plt.show()
+
+    nx.draw(T, with_labels=True)
+
     plt.show()
