@@ -1,18 +1,21 @@
 import numpy as np
-import poly
+from src.web_generation import web_generator
+from src.mesh_import import mesh_importer
 import networkx as nx
 import matplotlib.pyplot as plt
 
 
 if __name__ == "__main__":
     # Load the angel mesh. Trimesh directly detects that the mesh is textured and contains a material
-    mesh_path = "models/json/truncated-cube.json"
-    vertices, faces = poly.from_file(mesh_path)
-    mesh = poly.Mesh(vertices, faces)
+    mesh_path = "data/json/truncated-cube.json"
+    vertices, faces = mesh_importer.from_file(mesh_path)
+    mesh = mesh_importer.Mesh(vertices, faces)
 
-    G = poly.graph_of_a_mesh(mesh)
-    D = poly.dual_graph_of_a_mesh(mesh)
-    T = poly.kruskals_max_weight(D)
+    print(vertices)
+
+    G = web_generator.graph_of_a_mesh(mesh)
+    D = web_generator.dual_graph_of_a_mesh(mesh)
+    T = web_generator.kruskals_max_weight(D)
 
     # Draw the graph
     # Create a figure with two subplots

@@ -5,47 +5,8 @@ import os
 import numpy as np
 from stl import mesh as stl_mesh
 import json
-
-
-class Mesh:
-    def __init__(self, vertices, faces):
-        self.vertices = vertices  # list of the position for each vertex
-        self.faces = faces  # list of the indices for each face
-
-        self.edges = []  # list of the indices for each edge
-        for face in self.faces:
-            for vertex_index in range(len(face)):
-                if self.edges.__contains__(
-                    tuple(
-                        sorted(
-                            [
-                                face[vertex_index],
-                                face[vertex_index + 1]
-                                if vertex_index + 1 < len(face)
-                                else face[0],
-                            ]
-                        )
-                    )
-                ):
-                    continue
-                else:
-                    self.edges.append(
-                        tuple(
-                            sorted(
-                                [
-                                    face[vertex_index],
-                                    face[vertex_index + 1]
-                                    if vertex_index + 1 < len(face)
-                                    else face[0],
-                                ]
-                            )
-                        )
-                    )
-        self.edges = sorted(self.edges)
-
-        self.shortest_edge_length, self.longest_edge_length = None, None
-
-        edge_length_xtremes(self)
+from src.mesh_import import mesh_importer
+from src import utils
 
 
 def kruskals_max_weight(D):
@@ -78,17 +39,6 @@ def kruskals_max_weight(D):
             T.add_edge(u, v, weight=data["weight"])
 
     return T
-
-
-def edge_length_xtremes(mesh):
-    for edge in mesh.edges:
-        length = calculate_distance(
-            mesh.vertices[int(edge[0])], mesh.vertices[int(edge[1])]
-        )
-        if mesh.shortest_edge_length is None or length < mesh.shortest_edge_length:
-            mesh.shortest_edge_length = length
-        if mesh.longest_edge_length is None or length > mesh.longest_edge_length:
-            mesh.longest_edge_length = length
 
 
 def graph_of_a_mesh(mesh):
@@ -152,18 +102,10 @@ def calculate_edge_weight(mesh, endpoint1, endpoint2, var1, var2):
     return h
 
 
-def calculate_distance(endpoint1, endpoint2, round_to=6):
-    x1, y1, z1 = endpoint1
-    x2, y2, z2 = endpoint2
-    distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
-    distance = round(distance, round_to)
-    return distance
-
-
 def calculate_minimum_perimeter_weight(
     endpoint1, endpoint2, shortest_edge_length, longest_edge_length
 ):
-    edge_length = calculate_distance(endpoint1, endpoint2)
+    edge_length = utils.calculate_distance(endpoint1, endpoint2)
 
     if longest_edge_length == shortest_edge_length:
         return 1
@@ -192,60 +134,11 @@ def calculate_flat_spanning_tree_weight(
     return flat_weight
 
 
-# This function needs to be fixed. It terrible. (little less terrible now.)
-def from_file(path):
-    file_extension = os.path.splitext(path)[1]
-    vertices = []
-    faces = []
-
-    if file_extension == ".obj":
-        print(path)
-        with open(path) as file:
-            for line in file:
-                if line.startswith("v "):
-                    vertices.append([float(coord) for coord in line.split()[1:]])
-                elif line.startswith("f "):
-                    face = []
-                    for connection in [coord for coord in line.split()[1:]]:
-                        face.append(int(connection.split("/")[0]))
-                    faces.append(face)
-        return vertices, faces
-    elif file_extension == ".json":
-        with open(path) as file:
-            data = json.load(file)
-        constants = data["constants"]
-        vertices_const = data["vertices"]
-        faces = data["faces"]
-        vertices = []
-
-        for vertex_constant in vertices_const:
-            vertex = []
-            for coordinate in vertex_constant:
-                if str(coordinate).__contains__("C"):
-                    if coordinate.startswith("-"):
-                        negative = True
-                    constant = round(
-                        constants[int(coordinate.strip("-").strip("C"))][0], 6
-                    )
-                    if coordinate[0] == "-":
-                        coordinate = constant * -1
-                    else:
-                        coordinate = constant
-                else:
-                    coordinate = float(coordinate)
-                vertex.append(coordinate)
-            vertices.append(vertex)
-        return vertices, faces
-    else:
-        print(f"Error: Unsupported file extension {file_extension}")
-        return
-
-
 if __name__ == "__main__":
     # Load the angel mesh. Trimesh directly detects that the mesh is textured and contains a material
-    mesh_path = "models/json/truncated-cube.json"
-    vertices, faces = from_file(mesh_path)
-    mesh = Mesh(vertices, faces)
+    mesh_path = "models/json/icosahedron.json"
+    vertices, faces = mesh_importer.from_file(mesh_path)
+    mesh = mesh_importer.Mesh(vertices, faces)
 
     G = graph_of_a_mesh(mesh)
     D = dual_graph_of_a_mesh(mesh)
@@ -257,13 +150,17 @@ if __name__ == "__main__":
 
     # Plot the first graph in the first subplot
     plt.subplot(1, 2, 1)
-    pos = nx.spring_layout(G, k=0.2)  # You can adjust the 'k' parameter to control edge length
+    pos = nx.spring_layout(
+        G, k=0.2
+    )  # You can adjust the 'k' parameter to control edge length
     nx.draw(G, pos, with_labels=True)
     plt.title("Graph G")
 
     # Plot the second graph in the second subplot
     plt.subplot(1, 2, 2)
-    pos = nx.spring_layout(D, k=0.2)  # You can adjust the 'k' parameter to control edge length
+    pos = nx.spring_layout(
+        D, k=0.2
+    )  # You can adjust the 'k' parameter to control edge length
     nx.draw(D, pos, with_labels=True)
     plt.title("Graph D")
 
